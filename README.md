@@ -1,6 +1,6 @@
-# BloqadeControl.jl
+# Differentiable Analog Pulse Learning for Rydberg Atoms
 
-**BloqadeControl** is a Julia module developed for differentiable analog quantum computing on neutral-atom quantum computers. We use **Bloqade** from QuEraComputing to simulate Rydberg atoms. 
+We introduce **BloqadeControl**, a Julia module developed for differentiable analog quantum computing on neutral-atom quantum computers. We use **Bloqade** from QuEraComputing to simulate Rydberg atoms. 
 
 ## Setup
 The module is developed with Julia 1.7.3. It is also required to pre-install the following packages:
@@ -13,12 +13,19 @@ using LinearAlgebra
 ```
 
 ## Demos
-In 'example.jl', we provide a minimal example of preparing the 2-qubit Bell state. To run the example, simply do:
+1. State preparation
+
+In 'state_preparation.jl', we provide several examples of state preparation, including the all-one state, the uniform superposition state, and the 2-qubit Bell state. To try the demo, simply run:
 ```bash
 julia example.jl
 ```
 
-## Documentation
+2. Unnitary synthesis
+
+TBA. 
+
+
+## Documentations
 The ansatz we use in **BloqadeControl** is as the following:
 ![](/docs/ansatz.png)
 
