@@ -13,15 +13,13 @@ using LinearAlgebra
 ```
 
 ## Demos
-1. State preparation
+**Note: To run notebook with Julia, you will need to add the package IJulia.**
 
-In 'state_preparation.jl', we provide several examples of state preparation, including the all-one state, the uniform superposition state, and the 2-qubit Bell state. To try the demo, simply run:
-```bash
-julia example.jl
-```
+1. State preparation: see the notebook 'demo-state-preparation.ipynb'. Several examples of state preparation are provided, including the all-one state, the uniform superposition state, and the 2-qubit Bell state.
 
-2. Unnitary synthesis
+2. Pulse fine tuning: see the notebook 'demo-fine-tuning.ipynb'.
 
+3. Unnitary synthesis
 TBA. 
 
 
