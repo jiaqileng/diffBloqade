@@ -6,41 +6,29 @@ function dσ(z::Float64)
     return σ(z) * (1 - σ(z))
 end;
 
-function basis_eval!(base_vec::Vector, basis::String, num_basis::Int, tf::Float64, t::Float64)
-    # Output: Array [b_j(t)]_{j=0,1,...,num_basis-1}
-    
-    if basis == "spectral"
-        base_vec .= broadcast(k->sin(k*pi*t/tf), 0:num_basis-1)
-    elseif basis == "legendre"
-        base_vec .= broadcast(k->Pl(2*t/tf - 1, k), 0:num_basis-1)
-    else
-        return error("No basis found.")
-    end
-    return nothing;
-end
+function sine(z::Float64, k::Int)
+    # Args: 
+    #   z: variable, 0 <= z <= 1
+    #   k: index of basis, 0 <= k <= N-1
+    # Return: a sine wave basis supported on [0,1].
 
-function inner_pulse(basis::String, vv::Vector, num_basis::Int, tf::Float64, t::Float64)
-    # Output: Real f(t) = Σ v_j * b_j(t)
-    
-    base_vec = Array{Float64}(undef, num_basis)
-    basis_eval!(base_vec, basis, num_basis, tf, t)
-    
-    return dot(vv, base_vec);
+    return sin(k*pi*z)
 end;
-    
-function pulse_constructor(basis::String, vv::Vector, num_basis::Int, tf::Float64, vmin::Float64, vmax::Float64, t::Float64)
-    # Output: Real full_pulse(t) = (vmax - vmin) * σ(Σ v_j * b_j(t)) + vmin
-    
-    inner_val = inner_pulse(basis, vv, num_basis, tf, t);
-    return (vmax - vmin) * σ(inner_val) + vmin;
-end
 
-function dpdv!(dpdv::Vector, basis::String, vv::Vector, num_basis::Int, tf::Float64, vmin::Float64, vmax::Float64, t::Float64)
-    # Output: Array dpdv = ∇_vv full_pulse, evaluated at t
-    
-    dfdv = Array{Float64}(undef, num_basis)
-    basis_eval!(dfdv, basis, num_basis, tf, t)
-    inner_val = inner_pulse(basis, vv, num_basis, tf, t)
-    dpdv .= (vmax - vmin) * dσ(inner_val) * dfdv
+function bspline(z::Float64, N::Int, k::Int)
+    # Args: 
+    #   z: variable, 0 <= z <= 1
+    #   N: number of basis
+    #   k: index of basis, 0 <= k <= N-1
+    # Return: a quadratic B-Spline basis supported on [(k-1)/(N+2), (k+2)/(N+2)].
 
-end
+    l = k/(N+2)
+    r = (k+3)/(N+2)
+    norm_factor = 4/(l+r)^2
+
+    if z < l || z > r
+        return 0;
+    else
+        return norm_factor * (z-l)*(z-r);
+    end
+end;
