@@ -19,7 +19,8 @@ mutable struct BloqadeModel
     global_detuning::Float64
     n_samples::Int
     init_states::Vector{Vector{ComplexF64}}
-    observables::Vector{GeneralMatrixBlock{2, ComplexF64, Matrix{ComplexF64}}}
+    #observables::Vector{GeneralMatrixBlock{2, ComplexF64, Matrix{ComplexF64}}}
+    observables::Vector{Any}
 
     C6::Float64
     rabi_min::Float64
@@ -27,7 +28,7 @@ mutable struct BloqadeModel
     delta_min::Float64
     delta_max::Float64
     
-    function BloqadeModel(atoms::AtomList{1, Float64}, local_detuning::Vector, global_detuning::Float64, n_samples::Int, init_states::Vector{Vector{ComplexF64}}, observables::Vector{GeneralMatrixBlock{2, ComplexF64, Matrix{ComplexF64}}})
+    function BloqadeModel(atoms::AtomList{1, Float64}, local_detuning::Vector, global_detuning::Float64, n_samples::Int, init_states::Vector{Vector{ComplexF64}}, observables::Vector{Any})
         if length(atoms) != length(local_detuning)
             return error("Atoms size does not match local detuning.")
         end
@@ -219,7 +220,7 @@ function compute_loss(model::BloqadeModel, generator::WaveformGenerator, optimiz
     # Add l2 regularization
     loss_l2 = optimizer.w_l2 * 0.5 * norm(optimizer.params)^2 / (a*b)
 
-    return loss + loss_l2;
+    return loss/num_states + loss_l2;
 end
 
 function backward!(model::BloqadeModel, generator::WaveformGenerator, optimizer::Optimizer, ψ0::Vector, M::GeneralMatrixBlock)
@@ -319,6 +320,7 @@ function train_loss!(model::BloqadeModel, generator::WaveformGenerator, optimize
             #loss_l2 = optimizer.w_l2 * 0.5 * norm(optimizer.params)^2 / (a*b)
             #print("epoch: ", epoch, ", loss = ", loss_val, ", loss_l2 = ", loss_l2, ".\n");
             @printf "epoch: %i, loss = %.4f, batch_loss = %.4f\n" epoch loss_val batch_loss
+            #@printf "epoch: %i, loss = %.4f, batch_loss = %f\n" epoch loss_val batch_losses
         end
     end
 end
