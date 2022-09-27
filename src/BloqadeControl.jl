@@ -411,34 +411,29 @@ function train_loss!(model::BloqadeModel, generator::WaveformGenerator, optimize
     end
 end
 
-function grad_fdm(model::BloqadeModel, generator::WaveformGenerator, optim::Optimizer, L::Int, d::Float64)
+function grad_fdm(model::BloqadeModel, generator::WaveformGenerator, optim::Optimizer, dx::Float64)
     grad_fdm = zeros((2, generator.n_basis))
     params0 = copy(optim.params)
 
     for j in 1:2
         for k in 1:generator.n_basis
-            counter = 1
-            while counter <= L
-                dx = d * rand()
-                params_p = copy(params0)
-                params_p[j,k] += dx
-                optim.params = params_p
-                update_waveform!(model, generator, optim.params)
-                f_p = compute_loss(model, generator, optim)
+            params_p = copy(params0)
+            params_p[j,k] += dx
+            optim.params = params_p
+            update_waveform!(model, generator, optim.params)
+            f_p = compute_loss(model, generator, optim)
 
-                params_m = copy(params0)
-                params_m[j,k] -= dx
-                optim.params = params_m
-                update_waveform!(model, generator, optim.params)
-                f_m = compute_loss(model, generator, optim)
+            params_m = copy(params0)
+            params_m[j,k] -= dx
+            optim.params = params_m
+            update_waveform!(model, generator, optim.params)
+            f_m = compute_loss(model, generator, optim)
 
-                grad_fdm[j,k] += (f_p - f_m)/(2*dx)
-                counter += 1
-            end
+            grad_fdm[j,k] += (f_p - f_m)/(2*dx)
         end
     end
     
-    return grad_fdm = grad_fdm ./ L;
+    return grad_fdm = grad_fdm;
 end
 
 
