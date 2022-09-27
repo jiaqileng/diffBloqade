@@ -9,7 +9,7 @@ using Printf
 
 include("utils.jl")
 
-export BloqadeModel, WaveformGenerator, Optimizer, update_waveform!, compute_loss, backward!, train_loss!
+export BloqadeModel, WaveformGenerator, Optimizer, update_waveform!, compute_loss, backward!, train_loss!, grad_fdm
 
 
 
@@ -211,6 +211,45 @@ function eval_ps_z(model::BloqadeModel, generator::WaveformGenerator, site_id::I
     return real(ps);
 end
 
+function eval_ps_onsite(model::BloqadeModel, generator::WaveformGenerator, tag::Char, site_id::Int, reg_τ::AbstractRegister, τ::Float64, sign::Char, params::Matrix)
+    if sign == '+'
+        s = 1.0
+    elseif sign == '-'
+        s = -1.0
+    end
+    
+    hamiltonian = rydberg_h(model.atoms; Ω=generator.Ω1, Δ=generator.Δ1, ϕ=0)
+    reg = copy(reg_τ) # pass in the quantum state at time τ
+    #reg = ArrayReg(state_τ; nlevel=2)
+
+    # Apply Pauli rotations
+    if tag == 'x'
+        # Apply X rotations on the site
+        apply!(reg, put(site_id=>Rx(2*(1 + s*3/4)*pi)))
+    elseif tag == 'z'
+        # Apply Z rotations at a site
+        apply!(reg, put(site_id=>Rz(2*(1 + s*3/4)*pi)))
+    else 
+        return error("Tag must be x or z.")
+    end
+    
+    # Phase 2 emulation
+    prob = SchrodingerProblem(reg, (τ, generator.tf), hamiltonian)
+    integrator = init(prob, Vern8());
+    emulate!(prob)
+    
+    ps = expect(model.M, reg)
+    
+    return real(ps);
+end
+
+function eval_ps!(ps::Vector, model::BloqadeModel, generator::WaveformGenerator, tag::Char, reg_τ::AbstractRegister, τ::Float64, sign::Char, params::Matrix)
+    n_sites = length(model.atoms)
+    ps .= broadcast(site_id->eval_ps_onsite(model, generator, tag, site_id, reg_τ, τ, sign, params), 1:n_sites)
+
+    return nothing;
+end
+
 function compute_loss(model::BloqadeModel, generator::WaveformGenerator, optimizer::Optimizer)
     a, b = size(optimizer.params)
     if a != 2 || b != generator.n_basis
@@ -232,7 +271,7 @@ function compute_loss(model::BloqadeModel, generator::WaveformGenerator, optimiz
     return loss + loss_l2;
 end
 
-function backward!(model::BloqadeModel, generator::WaveformGenerator, optimizer::Optimizer)
+function backward_legacy!(model::BloqadeModel, generator::WaveformGenerator, optimizer::Optimizer)
     a, b = size(optimizer.g)
     if a != 2 || b != generator.n_basis
         return error("Gradient size does not match.")
@@ -282,6 +321,58 @@ function backward!(model::BloqadeModel, generator::WaveformGenerator, optimizer:
     return nothing;
 end
 
+function backward!(model::BloqadeModel, generator::WaveformGenerator, optimizer::Optimizer)
+    a, b = size(optimizer.g)
+    if a != 2 || b != generator.n_basis
+        return error("Gradient size does not match.")
+    end
+
+    # Erase existing grad info
+    optimizer.g .= zeros(Float64, size(optimizer.params))
+    
+    n_sites = length(model.atoms)
+    T = generator.tf
+    hamiltonian = rydberg_h(model.atoms; Ω=generator.Ω1, Δ=generator.Δ1, ϕ=0)
+    ∇Ω_τ = Array{Float64}(undef, generator.n_basis)
+    ∇Δ_τ = Array{Float64}(undef, generator.n_basis)
+    p_m = Array{Float64}(undef, n_sites)
+    p_p = Array{Float64}(undef, n_sites)
+
+    # Monte Carlo sampling for gradient
+    counter = 1
+    while counter <= model.n_samples
+        #τ = Uniform(0, T)
+        τ = T * rand()
+        dpdv!(∇Ω_τ, generator, 'x', optimizer.params[1,:], model.rabi_min, model.rabi_max, τ)
+        dpdv!(∇Δ_τ, generator, 'z', optimizer.params[2,:], model.delta_min, model.delta_max, τ)
+
+        # Phase 1 emulation
+        reg0 = zero_state(n_sites) # initialization to all-zero states
+        prob = SchrodingerProblem(reg0, (0, τ), hamiltonian)
+        integrator = init(prob, Vern8());
+        emulate!(prob)
+
+        # Update grad for x
+        eval_ps!(p_m, model, generator, 'x', reg0, τ, '-', optimizer.params)
+        eval_ps!(p_p, model, generator, 'x', reg0, τ, '+', optimizer.params)
+        optimizer.g[1,:] .+= ∇Ω_τ * dot(ones(n_sites), p_m - p_p)
+
+        # Update grad for z
+        eval_ps!(p_m, model, generator, 'z', reg0, τ, '-', optimizer.params)
+        eval_ps!(p_p, model, generator, 'z', reg0, τ, '+', optimizer.params)
+        optimizer.g[2,:] .+= ∇Δ_τ * dot(model.local_detuning, p_m - p_p)
+        
+        counter += 1
+    end
+
+    optimizer.g .= 0.5 * T * optimizer.g ./ model.n_samples
+
+    # Add gradient from l2 regularization
+    optimizer.g .+= optimizer.w_l2 * optimizer.params ./ (a*b)
+
+    return nothing;
+end
+
 function step!(optimizer::Optimizer, epoch::Int)
     if optimizer.method == "sgd"
         optimizer.params .-= optimizer.lr * optimizer.g
@@ -318,7 +409,36 @@ function train_loss!(model::BloqadeModel, generator::WaveformGenerator, optimize
             @printf "epoch: %i, loss = %.4f, loss_l2 = %.6f\n" epoch loss_val loss_l2
         end
     end
+end
+
+function grad_fdm(model::BloqadeModel, generator::WaveformGenerator, optim::Optimizer, L::Int, d::Float64)
+    grad_fdm = zeros((2, generator.n_basis))
+    params0 = copy(optim.params)
+
+    for j in 1:2
+        for k in 1:generator.n_basis
+            counter = 1
+            while counter <= L
+                dx = d * rand()
+                params_p = copy(params0)
+                params_p[j,k] += dx
+                optim.params = params_p
+                update_waveform!(model, generator, optim.params)
+                f_p = compute_loss(model, generator, optim)
+
+                params_m = copy(params0)
+                params_m[j,k] -= dx
+                optim.params = params_m
+                update_waveform!(model, generator, optim.params)
+                f_m = compute_loss(model, generator, optim)
+
+                grad_fdm[j,k] += (f_p - f_m)/(2*dx)
+                counter += 1
+            end
+        end
+    end
     
+    return grad_fdm = grad_fdm ./ L;
 end
 
 
