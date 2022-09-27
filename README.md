@@ -17,9 +17,11 @@ using LinearAlgebra
 ## Demos
 **Note: To run notebook with Julia, you will need to add the package IJulia.**
 
-1. State preparation: see the notebook 'demo-state-preparation.ipynb'. Several examples of state preparation are provided, including the all-one state, the uniform superposition state, and the 2-qubit Bell state.
+1. Comparison between finite difference method and our method for gradient computation: see the notebook 'demo-compare-grad.ipynb'. As the number of samples increases, our method (based on Monte Carlo sampling) will converge to the true gradient. We also observe that, even with a small number of samples, the direction of the estimated gradient is very close to the true gradient!
 
-2. Pulse fine tuning: see the notebook 'demo-fine-tuning.ipynb'.
+2. State preparation: see the notebook 'demo-state-preparation.ipynb'. Several examples of state preparation are provided, including the all-one state, the uniform superposition state, and the 2-qubit Bell state.
 
-3. Unnitary synthesis
+3. Pulse fine tuning: see the notebook 'demo-fine-tuning.ipynb'.
+
+4. Unnitary synthesis
 TBA. 
