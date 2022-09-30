@@ -304,6 +304,8 @@ function train_loss!(model::BloqadeModel, generator::WaveformGenerator, optimize
     num_states = length(model.init_states)
     batch_losses = Array{Float64}(undef, num_states)
 
+    losses = Array{Float64}([epoch for epoch in 1:optimizer.n_epochs if epoch % 10 == 0])
+    count = 1
     for epoch in 1:optimizer.n_epochs
         for state_id in 1:num_states
             ψ0 = copy(model.init_states[state_id])
@@ -316,6 +318,8 @@ function train_loss!(model::BloqadeModel, generator::WaveformGenerator, optimize
         
         if mod(epoch, 10) == 0
             loss_val = compute_loss(model, generator, optimizer)
+	    losses[count] = loss_val
+	    count = count + 1
             batch_loss = mean(batch_losses)
             #loss_l2 = optimizer.w_l2 * 0.5 * norm(optimizer.params)^2 / (a*b)
             #print("epoch: ", epoch, ", loss = ", loss_val, ", loss_l2 = ", loss_l2, ".\n");
@@ -323,6 +327,7 @@ function train_loss!(model::BloqadeModel, generator::WaveformGenerator, optimize
             #@printf "epoch: %i, loss = %.4f, batch_loss = %f\n" epoch loss_val batch_losses
         end
     end
+    return losses
 end
 
 function grad_fdm(model::BloqadeModel, generator::WaveformGenerator, optim::Optimizer, dx::Float64)
