@@ -1,8 +1,10 @@
 # Differentiable Analog Pulse Learning for Rydberg Atoms
 
+This project is an extension of my previous work *Differentiable Analog Quantum Computing for Optimization and Control*. [[ArXiv]](https://arxiv.org/abs/2210.15812)
+
 We introduce **BloqadeControl**, a Julia module developed for differentiable analog quantum computing on neutral-atom quantum computers. We use **Bloqade** from QuEraComputing to simulate Rydberg atoms. 
 
-For more details, see [this note](https://www.overleaf.com/read/vcgrwrkrrgqp).
+For more technical details, see [this note](https://www.overleaf.com/read/vcgrwrkrrgqp).
 
 ## Setup
 The module is developed with Julia 1.7.3. It is also required to pre-install the following packages:
