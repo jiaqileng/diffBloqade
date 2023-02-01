@@ -25,5 +25,5 @@ using LinearAlgebra
 
 3. Pulse fine tuning: see the notebook 'demo-fine-tuning.ipynb'.
 
-4. Unnitary synthesis
+4. Unitary synthesis
 TBA. 
